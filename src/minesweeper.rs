@@ -4,7 +4,8 @@ use std::fmt::{Display, Write};
 
 use cell::Cell;
 
-use rand::{thread_rng, Rng};
+use rand::seq::SliceRandom;
+use rand::thread_rng;
 
 pub enum GuessResult {
     Mine,
@@ -15,6 +16,7 @@ pub enum GuessResult {
 pub struct Minesweeper {
     pub size: usize,
     pub grid: Vec<Vec<Cell>>,
+    pub state: bool,
 }
 
 impl Minesweeper {
@@ -22,8 +24,20 @@ impl Minesweeper {
         Minesweeper {
             size,
             grid,
+            state: true,
         }
         
+    }
+
+    fn place_mines(grid: &mut Vec<Vec<Cell>>, num_bombs: usize) {
+        let mut rng = thread_rng();
+        let mut cells: Vec<(usize, usize)> = (0..grid.len())
+            .flat_map(|i| (0..grid[i].len()).map(move |j| (i, j)))
+            .collect();
+        cells.shuffle(&mut rng);
+        for (i, j) in cells.into_iter().take(num_bombs) {
+            grid[i][j].has_mine = true;
+        }
     }
 
     pub fn create_grid(size: usize) -> Vec<Vec<Cell>> {
@@ -34,31 +48,20 @@ impl Minesweeper {
                 grid[i][j].col = j;
             }
         }
+        Minesweeper::place_mines(&mut grid, 10);
         grid
     }
 
-    pub fn place_mines(grid: &mut Vec<Vec<Cell>>, amount: usize) {
-        let mut rng = thread_rng();
-        for _ in 0..amount {
-            let row = rng.gen_range(0..grid.len());
-            let col = rng.gen_range(0..grid[0].len());
-            while grid[row][col].has_mine {
-                let row = rng.gen_range(0..grid.len());
-                let col = rng.gen_range(0..grid[0].len());
-            }
-            grid[row][col].set_has_mine();
-        }
-    }
 
-    pub fn calculate_adjacent_mines(grid: &Vec<Vec<Cell>>, row: usize, col: usize) -> usize {
+    pub fn calculate_adjacent_mines(&self, row: usize, col: usize) -> usize {
         let mut count = 0;
         
         for &di in &[-1, 0, 1] {
             for &dj in &[-1, 0, 1] {
                 let ni = row as isize + di;
                 let nj = col as isize + dj;
-                if ni >= 0 && nj >= 0 && ni < grid.len() as isize && nj < grid[0].len() as isize {
-                    if grid[ni as usize][nj as usize].has_mine {
+                if ni >= 0 && nj >= 0 && ni < self.grid.len() as isize && nj < self.grid[0].len() as isize {
+                    if self.grid[ni as usize][nj as usize].has_mine {
                         count += 1;
                     }
                 }
@@ -67,24 +70,37 @@ impl Minesweeper {
         count
     }
 
-    pub fn guess_cell(grid: &mut Vec<Vec<Cell>>, row: usize, col: usize) -> Option<GuessResult> {
-        let cell = &mut grid[row][col];
-        if cell.flagged || cell.revealed {
+    pub fn guess_cell(&mut self, row: usize, col: usize) -> Option<GuessResult> {
+        let cell = &mut self.grid[row][col];
+        if self.state == false ||cell.flagged || cell.revealed {
             return None;
         }
 
         cell.set_revealed();
         if cell.has_mine{
+            self.state = false;
             Some(GuessResult::Mine)
         }  else {
+            let count = self.calculate_adjacent_mines(row, col);
+            if count == 0 {
+                for &di in &[-1, 0, 1] {
+                    for &dj in &[-1, 0, 1] {
+                        let ni = row as isize + di;
+                        let nj = col as isize + dj;
+                        if ni >= 0 && nj >= 0 && ni < self.grid.len() as isize && nj < self.grid[0].len() as isize {
+                            self.guess_cell(ni as usize, nj as usize);
+                        }
+                    }
+                }
+            }
             Some(GuessResult::NoMine)
         }
         
     }
 
-    pub fn flag_cell(grid: &mut Vec<Vec<Cell>>, row: usize, col: usize) {
-        let cell = &mut grid[row][col];
-        if cell.revealed{
+    pub fn flag_cell(&mut self, row: usize, col: usize) {
+        let cell = &mut self.grid[row][col];
+        if self.state == false || cell.revealed{
             return;
         }
 
@@ -101,7 +117,9 @@ impl Display for Minesweeper {
         for i in 0..self.size {
             for j in 0..self.size {
                 if !self.grid[i][j].revealed{
-                    if self.grid[i][j].flagged{
+                    if !self.state && self.grid[i][j].has_mine{
+                        f.write_str("💣 ")?;
+                    }else if self.grid[i][j].flagged{
                         f.write_str("🚩 ")?;
                     } else {
                         f.write_str("🟦 ")?;
@@ -109,7 +127,7 @@ impl Display for Minesweeper {
                 } else if self.grid[i][j].has_mine && self.grid[i][j].revealed{
                     f.write_str("💣 ")?;
                 } else {
-                    write!(f, " {} ", Minesweeper::calculate_adjacent_mines(&self.grid, i, j))?;
+                    write!(f, " {} ", self.calculate_adjacent_mines(i, j))?;
                 }
             }
             f.write_char('\n')?;
@@ -125,12 +143,10 @@ mod tests {
 
     #[test]
     fn test() {
-        println!("test started");
         let grid = Minesweeper::create_grid(10);
         let mut ms = Minesweeper::new(10, grid);
-        Minesweeper::place_mines(&mut ms.grid, 10);
-        Minesweeper::guess_cell(&mut ms.grid, 4, 4);
-        Minesweeper::flag_cell(&mut ms.grid, 4, 4);
+        ms.guess_cell(4, 4);
+        ms.flag_cell(3, 3);
         print!("{}", ms);
     }
 }
