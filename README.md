@@ -18,5 +18,6 @@ Before running the Minesweeper game, ensure you have the following prerequisites
 
 ## Tutorial
 After running the game, head on over to http://localhost:3000/ (should be this by default).  
+Use left click on a cell to reveal it or right click to flag it. To remove a flag, right click a flagged cell again.
 If you accidentally click on a bomb, the game is over. Refresh the page to try again.  
 To stop playing, close serve.  
