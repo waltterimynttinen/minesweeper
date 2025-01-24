@@ -9,7 +9,7 @@ Before running the Minesweeper game, ensure you have the following prerequisites
 - npm: npm is the package manager for JavaScript. It is used to manage project dependencies and build scripts. You can install npm by downloading Node.js from [here](https://nodejs.org/), which includes npm.
 
 ## Getting Started
-1. Clone the repository: `git clone https://github.com/your-username/minesweeper.git`
+1. Clone the repository: `git clone https://github.com/waltterimynttinen/minesweeper.git`
 2. Navigate into the repository: `cd minesweeper`
 3. Build the project with wasm-pack: `wasm-pack build --target web`
 4. Install serve: `npm install serve`
